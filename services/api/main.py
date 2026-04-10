@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
-from routes import router
+from app.routers.cluster import router as cluster_router
+from app.routers.ws import router as ws_router
 
 app = FastAPI(
     title="SharqNet API",
@@ -17,8 +17,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(router, prefix="/api")
-
+app.include_router(cluster_router, prefix="/api")
+app.include_router(ws_router, prefix="/ws")
 
 @app.get("/")
 def root():
