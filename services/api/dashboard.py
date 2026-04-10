@@ -155,7 +155,7 @@
 
 
 # app = Dash(__name__)
-# app.title = "VoltaNet Live Grid"
+# app.title = "SharqNet Live Grid"
 
 # app.layout = html.Div(
 #     [
@@ -167,7 +167,7 @@
 #         html.Div(
 #             [
 #                 html.H1(
-#                     "VoltaNet Live Grid",
+#                     "SharqNet Live Grid",
 #                     style={
 #                         "marginBottom": "8px",
 #                         "fontSize": "52px",
@@ -418,7 +418,7 @@
 #     app.run(debug=True, host="127.0.0.1", port=8050)
 
 """
-VoltaNet Live Grid - CRIMSON POWER Edition
+SharqNet Live Grid - CRIMSON POWER Edition
 High-voltage danger meets sophisticated dark UI
 """
 
@@ -1079,9 +1079,9 @@ def get_db_connection():
     return psycopg2.connect(
         host=os.getenv("POSTGRES_HOST", "127.0.0.1"),
         port=int(os.getenv("POSTGRES_PORT", "5432")),
-        dbname=os.getenv("POSTGRES_DB", "voltanet"),
-        user=os.getenv("POSTGRES_USER", "voltanet_user"),
-        password=os.getenv("POSTGRES_PASSWORD", "voltanet_secret_2025"),
+        dbname=os.getenv("POSTGRES_DB", "sharqnet"),
+        user=os.getenv("POSTGRES_USER", "sharqnet_user"),
+        password=os.getenv("POSTGRES_PASSWORD", "sharqnet_secret_2025"),
     )
 
 def fetch_cluster_snapshot():
@@ -1149,7 +1149,7 @@ def fetch_node_snapshot():
 # =============================================================================
 
 app = Dash(__name__)
-app.title = "VoltaNet Live Grid | CRIMSON"
+app.title = "SharqNet Live Grid | CRIMSON"
 
 # Inject CSS
 app.index_string = f'''
@@ -1183,7 +1183,7 @@ app.layout = html.Div([
                     html.Div(className="logo-glow")
                 ], className="logo-container"),
                 html.Div([
-                    html.H1("VoltaNet Live Grid"),
+                    html.H1("SharqNet Live Grid"),
                     html.P("High-Voltage Microgrid Monitoring")
                 ], className="brand-text")
             ], className="brand"),

@@ -13,7 +13,7 @@ services:
   #
   timescaledb:
     image: timescale/timescaledb:latest-pg15
-    container_name: voltanet_db
+    container_name: sharqnet_db
     restart: always
 
     # Environment variables are loaded from the project root .env file
@@ -54,7 +54,7 @@ services:
   #
   redis:
     image: redis:7-alpine
-    container_name: voltanet_redis
+    container_name: sharqnet_redis
     restart: always
 
     ports:
@@ -89,7 +89,7 @@ services:
   #
   mosquitto:
     image: eclipse-mosquitto:2
-    container_name: voltanet_mqtt
+    container_name: sharqnet_mqtt
     restart: always
 
     ports:
