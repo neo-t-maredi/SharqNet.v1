@@ -1,13 +1,11 @@
 from fastapi import APIRouter
-from data.db import fetch_cluster_snapshot
+from app.db.db import fetch_cluster_snapshot
 
 router = APIRouter()
 
-
 @router.get("/cluster/latest")
-def get_cluster_latest():
-    snapshot = fetch_cluster_snapshot()
-
+async def get_cluster_latest():
+    snapshot = await fetch_cluster_snapshot()
     return {
         "status": "ok",
         "data": snapshot,

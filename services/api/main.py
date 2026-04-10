@@ -1,12 +1,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api.routes import router
+from routes import router
 
 app = FastAPI(
-    title="VoltaNet API",
+    title="SharqNet API",
     version="0.1.0",
-    description="Real-time microgrid telemetry API for VoltaNet",
+    description="Real-time microgrid telemetry API for SharqNet",
 )
 
 app.add_middleware(
@@ -23,6 +23,6 @@ app.include_router(router, prefix="/api")
 @app.get("/")
 def root():
     return {
-        "message": "VoltaNet API is running",
+        "message": "SharqNet API is running",
         "docs": "/docs",
     }
