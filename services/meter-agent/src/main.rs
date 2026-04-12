@@ -201,13 +201,12 @@ pub fn simulate_reading(profile: &mut SmeProfile) -> MeterReading {
 
     // Approximate solar generation using a sine wave between 06:00 and 18:00.
     // At night, solar is zero.
-    let hour = Utc::now().hour() as f64;
-    let solar_factor = if (6.0..=18.0).contains(&hour) {
-        ((hour - 6.0) / 12.0 * std::f64::consts::PI).sin()
-    } else {
-        0.0
-    };
-
+ let hour = (Utc::now().hour() as f64 + 3.0) % 24.0; // UTC+3 Eastern Province
+let solar_factor = if (6.0..=18.0).contains(&hour) {
+    ((hour - 6.0) / 12.0 * std::f64::consts::PI).sin()
+} else {
+    0.0
+};
     let solar_kw = profile.solar_capacity_kw * solar_factor;
 
     // Net power:
