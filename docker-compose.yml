@@ -10,43 +10,33 @@ services:
   #
   # Used by:
   #   services/api/app/ingestor.py
+  #   services/api/app/db/db.py
   #
   timescaledb:
     image: timescale/timescaledb:latest-pg15
     container_name: sharqnet_db
     restart: always
-
-    # Environment variables are loaded from the project root .env file
-    # when docker compose starts.
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-
-    # Expose Postgres to the host so host-run services can connect.
     ports:
       - "5432:5432"
-
-    # Persist database data between container restarts.
     volumes:
       - timescale_data:/var/lib/postgresql/data
-
-    # Healthcheck ensures the DB is actually accepting connections.
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-
   # -----------------------------------------------------------
   # REDIS
   # -----------------------------------------------------------
   # Not required for basic telemetry ingestion yet,
-  # but useful later for:
-  #   - caching
-  #   - pub/sub
-  #   - real-time dashboard state
+  # but reserved for:
+  #   - caching latest readings
+  #   - pub/sub between services
   #   - background task coordination
   #
   # Host access:
@@ -56,25 +46,20 @@ services:
     image: redis:7-alpine
     container_name: sharqnet_redis
     restart: always
-
     ports:
       - "6379:6379"
-
-    # Persist Redis data between restarts.
     volumes:
       - redis_data:/data
-
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-
   # -----------------------------------------------------------
   # MOSQUITTO (MQTT BROKER)
   # -----------------------------------------------------------
-  # Handles telemetry messages coming from the Rust meter agents.
+  # Handles telemetry messages from the Rust meter agents.
   #
   # Internal container ports:
   #   1883 = standard MQTT
@@ -82,36 +67,73 @@ services:
   #
   # Host access:
   #   127.0.0.1:1884 -> container port 1883
-  #   127.0.0.1:9001 -> container port 9001
   #
   # Why 1884 on host?
-  #   To avoid conflicts with any local Mosquitto install already using 1883.
+  #   Avoids conflicts with any local Mosquitto install on 1883.
   #
   mosquitto:
     image: eclipse-mosquitto:2
     container_name: sharqnet_mqtt
     restart: always
-
     ports:
       - "1884:1883"
       - "9001:9001"
-
-    # Mount the broker configuration file from the repo into the container.
     volumes:
       - ./infra/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
-
-    # Simple healthcheck: try to subscribe once to broker system topics.
     healthcheck:
       test: ["CMD", "mosquitto_sub", "-t", "$$SYS/#", "-C", "1", "-i", "healthcheck", "-W", "3"]
       interval: 10s
       timeout: 5s
       retries: 5
 
+  # -----------------------------------------------------------
+  # FASTAPI
+  # -----------------------------------------------------------
+  # REST + WebSocket API layer between TimescaleDB and frontends.
+  #
+  # Host access:
+  #   127.0.0.1:8000
+  #
+  # Endpoints:
+  #   GET  /                    health check
+  #   GET  /api/cluster/latest  latest reading per node
+  #   WS   /ws/live             live telemetry stream
+  #   GET  /docs                Swagger UI
+  #
+  # Depends on TimescaleDB and Mosquitto being healthy first.
+  #
+  api:
+    build:
+      context: ./services/api
+      dockerfile: Dockerfile
+    container_name: sharqnet_api
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_HOST: sharqnet_db
+      MQTT_BROKER: sharqnet_mqtt
+      MQTT_PORT: 1883
+      REDIS_URL: redis://sharqnet_redis:6379
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+      mosquitto:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 # -------------------------------------------------------------
 # NAMED VOLUMES
 # -------------------------------------------------------------
-# These survive container recreation and keep your data persistent.
+# Survive container recreation and keep data persistent.
+#
 volumes:
   timescale_data:
   redis_data:
