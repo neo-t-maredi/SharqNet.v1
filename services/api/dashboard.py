@@ -12,9 +12,9 @@
 #     return psycopg2.connect(
 #         host=os.getenv("POSTGRES_HOST", "127.0.0.1"),
 #         port=int(os.getenv("POSTGRES_PORT", "5432")),
-#         dbname=os.getenv("POSTGRES_DB", "voltanet"),
-#         user=os.getenv("POSTGRES_USER", "voltanet_user"),
-#         password=os.getenv("POSTGRES_PASSWORD", "voltanet_secret_2025"),
+#         dbname=os.getenv("POSTGRES_DB", "sharqnet"),
+#         user=os.getenv("POSTGRES_USER", "sharqnet_user"),
+#         password=os.getenv("POSTGRES_PASSWORD", "sharqnet_secret_2025"),
 #     )
 
 

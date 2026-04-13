@@ -72,13 +72,13 @@ POSTGRES_HOST = os.getenv("POSTGRES_HOST", "127.0.0.1")
 POSTGRES_PORT = int(os.getenv("POSTGRES_PORT", "5432"))
 
 # Database name
-POSTGRES_DB = os.getenv("POSTGRES_DB", "voltanet")
+POSTGRES_DB = os.getenv("POSTGRES_DB", "sharqnet")
 
 # Database username
-POSTGRES_USER = os.getenv("POSTGRES_USER", "voltanet_user")
+POSTGRES_USER = os.getenv("POSTGRES_USER", "sharqnet_user")
 
 # Database password
-POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "voltanet_secret_2025")
+POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "sharqnet_secret_2025")
 
 
 # -------------------------------------------------------------
