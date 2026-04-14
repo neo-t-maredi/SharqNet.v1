@@ -1,17 +1,5 @@
 services:
 
-  # -----------------------------------------------------------
-  # TIMESCALEDB
-  # -----------------------------------------------------------
-  # Stores all meter telemetry in PostgreSQL + TimescaleDB.
-  #
-  # Host access:
-  #   127.0.0.1:5432
-  #
-  # Used by:
-  #   services/api/app/ingestor.py
-  #   services/api/app/db/db.py
-  #
   timescaledb:
     image: timescale/timescaledb:latest-pg15
     container_name: sharqnet_db
@@ -30,18 +18,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # -----------------------------------------------------------
-  # REDIS
-  # -----------------------------------------------------------
-  # Not required for basic telemetry ingestion yet,
-  # but reserved for:
-  #   - caching latest readings
-  #   - pub/sub between services
-  #   - background task coordination
-  #
-  # Host access:
-  #   127.0.0.1:6379
-  #
   redis:
     image: redis:7-alpine
     container_name: sharqnet_redis
@@ -56,21 +32,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # -----------------------------------------------------------
-  # MOSQUITTO (MQTT BROKER)
-  # -----------------------------------------------------------
-  # Handles telemetry messages from the Rust meter agents.
-  #
-  # Internal container ports:
-  #   1883 = standard MQTT
-  #   9001 = MQTT over WebSockets
-  #
-  # Host access:
-  #   127.0.0.1:1884 -> container port 1883
-  #
-  # Why 1884 on host?
-  #   Avoids conflicts with any local Mosquitto install on 1883.
-  #
   mosquitto:
     image: eclipse-mosquitto:2
     container_name: sharqnet_mqtt
@@ -86,22 +47,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # -----------------------------------------------------------
-  # FASTAPI
-  # -----------------------------------------------------------
-  # REST + WebSocket API layer between TimescaleDB and frontends.
-  #
-  # Host access:
-  #   127.0.0.1:8000
-  #
-  # Endpoints:
-  #   GET  /                    health check
-  #   GET  /api/cluster/latest  latest reading per node
-  #   WS   /ws/live             live telemetry stream
-  #   GET  /docs                Swagger UI
-  #
-  # Depends on TimescaleDB and Mosquitto being healthy first.
-  #
   api:
     build:
       context: ./services/api
@@ -129,11 +74,26 @@ services:
       timeout: 5s
       retries: 5
 
-# -------------------------------------------------------------
-# NAMED VOLUMES
-# -------------------------------------------------------------
-# Survive container recreation and keep data persistent.
-#
+  ingestor:
+    build:
+      context: ./services/api
+      dockerfile: Dockerfile
+    container_name: sharqnet_ingestor
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_HOST: sharqnet_db
+      MQTT_BROKER: sharqnet_mqtt
+      MQTT_PORT: 1883
+    command: ["python3", "app/ingestor.py"]
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+      mosquitto:
+        condition: service_healthy
+
 volumes:
   timescale_data:
   redis_data:

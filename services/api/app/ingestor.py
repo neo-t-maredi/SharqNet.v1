@@ -298,7 +298,7 @@ async def consume_messages(conn: asyncpg.Connection) -> None:
 #
 async def main() -> None:
 
-    log("VoltaNet Ingestor starting")
+    log("SharqNet Ingestor starting")
 
     conn = await wait_for_postgres()
 
