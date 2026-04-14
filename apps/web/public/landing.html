@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SharqNet ⚡ | Microgrid Telemetry Platform</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['IBM Plex Mono', 'monospace'],
+                    },
+                    colors: {
+                        steel: {
+                            50: '#f8fafc', 100: '#f1f5f9', 200: '#e2e8f0',
+                            300: '#cbd5e1', 400: '#94a3b8', 500: '#64748b',
+                            600: '#475569', 700: '#334155', 800: '#1e293b',
+                            900: '#0f172a', 950: '#020617',
+                        },
+                        electric: {
+                            100: '#e0f2fe', 300: '#7dd3fc', 400: '#38bdf8',
+                            500: '#0ea5e9', 600: '#0284c7', 900: '#0c4a6e'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            background: #020617;
+            color: #e2e8f0;
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+        }
+
+        #hero-shader {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            display: block !important;
+        }
+
+        #hero-shader canvas {
+            display: block !important;
+            width: 100% !important;
+            height: 100% !important;
+        }
+
+        #electric-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 5;
+            pointer-events: none;
+            mix-blend-mode: screen;
+        }
+
+        .hero-section {
+            position: relative;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            overflow: hidden;
+            background: radial-gradient(circle at 60% 50%, #1e293b 0%, #020617 60%);
+        }
+
+        .hero-content { 
+            position: relative; 
+            z-index: 10; 
+            pointer-events: none;
+        }
+        
+        .hero-content > * {
+            pointer-events: auto;
+        }
+
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(148, 163, 184, 0.1);
+        }
+
+        .glass-panel:hover { border-color: rgba(148, 163, 184, 0.3); }
+
+        .data-stream {
+            background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.4), transparent);
+            background-size: 200% 100%;
+            animation: stream 2s linear infinite;
+        }
+
+        @keyframes stream {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+
+        .electric-pulse {
+            box-shadow: 0 0 30px rgba(56, 189, 248, 0.4);
+            animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; box-shadow: 0 0 20px rgba(56, 189, 248, 0.4); }
+            50% { opacity: .8; box-shadow: 0 0 40px rgba(56, 189, 248, 0.6); }
+        }
+
+        .grid-lines {
+            background-image: 
+                linear-gradient(rgba(148, 163, 184, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(148, 163, 184, 0.03) 1px, transparent 1px);
+            background-size: 60px 60px;
+        }
+
+        .live-indicator::before {
+            content: '';
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            background: #38bdf8;
+            border-radius: 50%;
+            margin-right: 6px;
+            animation: blink 2s infinite;
+        }
+
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+        .metric-card { transition: all 0.3s ease; }
+        .metric-card:hover {
+            transform: translateY(-2px);
+            background: rgba(30, 41, 59, 0.8);
+            border-color: rgba(56, 189, 248, 0.3);
+        }
+
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+
+        .text-gradient {
+            background: linear-gradient(135deg, #38bdf8 0%, #94a3b8 50%, #cbd5e1 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .flash-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(56, 189, 248, 0.15);
+            opacity: 0;
+            pointer-events: none;
+            z-index: 3;
+            transition: opacity 0.05s;
+        }
+
+        .noise-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 9999;
+            opacity: 0.02;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        }
+    </style>
+</head>
+<body class="grid-lines">
+    <div class="noise-overlay"></div>
+
+    <nav class="fixed top-0 w-full z-50 glass-panel border-b border-steel-800/30">
+        <div class="max-w-7xl mx-auto px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center space-x-3">
+                    <div class="w-8 h-8 bg-gradient-to-br from-steel-300 to-steel-500 rounded-lg flex items-center justify-center border border-steel-400/30">
+                        <svg class="w-5 h-5 text-steel-950" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                        </svg>
+                    </div>
+                    <span class="text-xl font-bold tracking-tight text-steel-100">Sharq<span class="text-steel-400">Net</span></span>
+                </div>
+                <div class="hidden md:flex items-center space-x-8">
+                    <a href="#dashboard" class="text-sm text-steel-400 hover:text-electric-300 transition-colors font-medium">Dashboard</a>
+                    <a href="#topology" class="text-sm text-steel-400 hover:text-electric-300 transition-colors font-medium">Topology</a>
+                    <a href="#telemetry" class="text-sm text-steel-400 hover:text-electric-300 transition-colors font-medium">Telemetry</a>
+                    <a href="#analytics" class="text-sm text-steel-400 hover:text-electric-300 transition-colors font-medium">Analytics</a>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="live-indicator text-xs font-mono text-electric-400 font-medium">LIVE</div>
+                    <button class="px-4 py-2 bg-steel-800 hover:bg-steel-700 text-steel-100 font-semibold rounded-lg transition-all text-sm border border-steel-600">
+                        Export
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <section class="hero-section relative">
+        <div id="hero-shader"></div>
+        <canvas id="electric-canvas"></canvas>
+        <div class="flash-overlay" id="flash"></div>
+        
+        <div class="hero-content max-w-7xl mx-auto px-6 lg:px-8 w-full pt-20">
+            <div class="grid lg:grid-cols-2 gap-16 items-center">
+                <div class="space-y-8">
+                    <div class="inline-flex items-center px-4 py-1.5 rounded-full border border-steel-700/50 bg-steel-900/50 text-steel-300 text-xs font-mono backdrop-blur-sm">
+                        <span class="w-1.5 h-1.5 bg-electric-400 rounded-full mr-2 animate-pulse"></span>
+                        Eastern Province Grid Online ⚡ 12kV
+                    </div>
+                    
+                    <h1 class="text-6xl lg:text-8xl font-bold leading-[0.9] text-white tracking-tight">
+                        Microgrid<br>
+                        <span class="text-gradient">Intelligence</span>
+                    </h1>
+                    
+                    <p class="text-lg text-steel-400 max-w-lg leading-relaxed font-light">
+                        Real-time telemetry for distributed energy clusters across the Eastern Province. 
+                        Edge-to-cloud pipeline with <span class="text-electric-300 font-semibold">high-voltage monitoring</span>.
+                    </p>
+                    
+                    <div class="flex space-x-4 pt-4">
+                        <button class="px-8 py-4 bg-steel-100 hover:bg-white text-steel-950 font-semibold rounded-xl transition-all transform hover:scale-105 electric-pulse border border-steel-300 relative overflow-hidden group">
+                            <span class="relative z-10">Access Dashboard</span>
+                            <div class="absolute inset-0 bg-gradient-to-r from-electric-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                        </button>
+                        <button class="px-8 py-4 border border-steel-700 hover:border-electric-500 text-steel-300 hover:text-electric-300 rounded-xl transition-all backdrop-blur-sm hover:shadow-[0_0_20px_rgba(56,189,248,0.3)]">
+                            View Architecture
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="space-y-4 relative z-20">
+                    <div class="glass-panel rounded-2xl p-6 metric-card border border-steel-800/50 relative overflow-hidden">
+                        <div class="absolute top-0 right-0 w-32 h-32 bg-electric-500/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
+                        <div class="flex justify-between items-start mb-4 relative z-10">
+                            <div>
+                                <div class="text-steel-500 text-xs font-mono uppercase tracking-wider mb-1">Active Nodes</div>
+                                <div class="text-5xl font-bold text-white counter" data-target="147">0</div>
+                            </div>
+                            <div class="text-electric-400 text-xs font-mono bg-electric-900/30 px-2 py-1 rounded border border-electric-700/30">+12%</div>
+                        </div>
+                        <div class="h-1 bg-steel-800 rounded-full overflow-hidden">
+                            <div class="h-full bg-gradient-to-r from-steel-600 via-electric-500 to-steel-400 w-3/4 data-stream"></div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="glass-panel rounded-2xl p-5 metric-card border border-steel-800/50">
+                            <div class="text-steel-500 text-xs font-mono uppercase tracking-wider mb-1">Voltage</div>
+                            <div class="text-3xl font-bold text-white"><span class="counter" data-target="12.4">0</span> <span class="text-lg text-electric-400 font-normal">kV</span></div>
+                            <div class="text-xs text-steel-600 mt-2 font-mono">Peak: 15.2 kV</div>
+                        </div>
+                        
+                        <div class="glass-panel rounded-2xl p-5 metric-card border border-steel-800/50">
+                            <div class="text-steel-500 text-xs font-mono uppercase tracking-wider mb-1">Current</div>
+                            <div class="text-3xl font-bold text-electric-400"><span class="counter" data-target="850">0</span> <span class="text-lg text-steel-400 font-normal">A</span></div>
+                            <div class="text-xs text-steel-600 mt-2 font-mono">Load: 87%</div>
+                        </div>
+                    </div>
+
+                    <div class="glass-panel rounded-2xl p-5 metric-card border border-steel-800/50">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <div class="text-steel-500 text-xs font-mono uppercase tracking-wider mb-1">Arc Events</div>
+                                <div class="text-3xl font-bold text-white"><span class="text-electric-400">0</span><span class="text-steel-500">/</span>24h</div>
+                            </div>
+                            <div class="w-12 h-12 rounded-full border-2 border-electric-500/50 flex items-center justify-center relative">
+                                <div class="w-8 h-8 rounded-full bg-electric-900/50 flex items-center justify-center">
+                                    <svg class="w-4 h-4 text-electric-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                                    </svg>
+                                </div>
+                                <div class="absolute inset-0 rounded-full border border-electric-400 animate-ping opacity-30"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="absolute bottom-8 left-1/2 transform -translate-x-1/2 text-steel-600 animate-bounce">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/>
+            </svg>
+        </div>
+    </section>
+
+    <section id="dashboard" class="py-24 px-6 lg:px-8 max-w-7xl mx-auto border-t border-steel-800/30">
+        <div class="flex justify-between items-end mb-12">
+            <div>
+                <h2 class="text-3xl font-bold text-white mb-2">Live Telemetry</h2>
+                <p class="text-steel-500">Real-time microgrid monitoring and analytics</p>
+            </div>
+            <div class="flex space-x-2">
+                <span class="px-3 py-1.5 rounded-lg bg-steel-900 text-xs text-steel-400 border border-steel-800 font-mono">MQTT</span>
+                <span class="px-3 py-1.5 rounded-lg bg-steel-900 text-xs text-steel-400 border border-steel-800 font-mono">TimescaleDB</span>
+                <span class="px-3 py-1.5 rounded-lg bg-steel-900 text-xs text-steel-400 border border-steel-800 font-mono">WebSocket</span>
+            </div>
+        </div>
+
+        <div class="grid lg:grid-cols-3 gap-6">
+            <div class="lg:col-span-2 glass-panel rounded-2xl p-6 border border-steel-800/50">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-lg font-semibold text-steel-200">Energy Flow Distribution</h3>
+                    <select class="bg-steel-900 border border-steel-700 rounded-lg px-3 py-1.5 text-sm text-steel-300 font-mono focus:outline-none focus:border-electric-500">
+                        <option>Last 24 Hours</option>
+                        <option>Last Week</option>
+                        <option>Real-time</option>
+                    </select>
+                </div>
+                <div class="relative h-72 w-full bg-steel-950/50 rounded-xl overflow-hidden">
+                    <canvas id="energyChart" class="w-full h-full"></canvas>
+                </div>
+            </div>
+
+            <div class="glass-panel rounded-2xl p-6 border border-steel-800/50">
+                <h3 class="text-lg font-semibold text-steel-200 mb-4">Node Status</h3>
+                <div class="space-y-3 max-h-80 overflow-y-auto scrollbar-hide" id="nodeList"></div>
+            </div>
+
+            <div class="glass-panel rounded-2xl p-6 border border-electric-600/20 bg-electric-950/10">
+                <h3 class="text-lg font-semibold text-electric-400 mb-4 flex items-center font-medium">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                    Arc Faults
+                </h3>
+                <div class="space-y-3" id="alertList">
+                    <div class="flex items-start space-x-3 p-3 rounded-lg bg-steel-900/50 border border-electric-600/20">
+                        <div class="w-2 h-2 bg-electric-400 rounded-full mt-2 animate-pulse shadow-[0_0_10px_rgba(56,189,248,0.8)]"></div>
+                        <div>
+                            <div class="text-sm font-medium text-steel-200">High Impedance Arc</div>
+                            <div class="text-xs text-steel-500 font-mono mt-0.5">Node SA-EP-042 • Dammam Industrial</div>
+                            <div class="text-xs text-electric-400 mt-1 font-mono">2 min ago</div>
+                        </div>
+                    </div>
+                    <div class="flex items-start space-x-3 p-3 rounded-lg bg-steel-900/50 border border-steel-800/20">
+                        <div class="w-2 h-2 bg-steel-600 rounded-full mt-2"></div>
+                        <div>
+                            <div class="text-sm font-medium text-steel-200">Voltage Sag</div>
+                            <div class="text-xs text-steel-500 font-mono mt-0.5">Node SA-EP-018 • Jubail</div>
+                            <div class="text-xs text-steel-400 mt-1 font-mono">12 min ago</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="lg:col-span-2 glass-panel rounded-2xl p-6 border border-steel-800/50">
+                <h3 class="text-lg font-semibold text-steel-200 mb-4">Eastern Province Cluster Map</h3>
+                <div class="relative h-56 bg-steel-950 rounded-xl overflow-hidden border border-steel-800/50">
+                    <div class="absolute inset-0 flex items-center justify-center text-steel-600">
+                        <div class="text-center">
+                            <div class="text-3xl mb-2">🗺️</div>
+                            <div class="text-sm text-steel-500">Interactive Map Visualization</div>
+                            <div class="text-xs text-steel-700 mt-1 font-mono">Dammam • Khobar • Jubail • Qatif • Ras Tanura</div>
+                        </div>
+                    </div>
+                    <div class="absolute top-1/4 left-1/4 w-3 h-3 bg-electric-400 rounded-full animate-ping shadow-[0_0_15px_rgba(56,189,248,1)]"></div>
+                    <div class="absolute top-1/3 right-1/3 w-2 h-2 bg-steel-400 rounded-full animate-pulse"></div>
+                    <div class="absolute bottom-1/4 left-1/2 w-2 h-2 bg-electric-500 rounded-full animate-pulse"></div>
+                    <div class="absolute top-1/2 left-1/3 w-2 h-2 bg-steel-600 rounded-full"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="py-24 px-6 lg:px-8 max-w-7xl mx-auto border-t border-steel-800/30">
+        <div class="text-center mb-16">
+            <h2 class="text-3xl font-bold text-white mb-4">Data Pipeline Architecture</h2>
+            <p class="text-steel-500 max-w-2xl mx-auto">Edge-to-cloud streaming architecture with arc-fault detection</p>
+        </div>
+
+        <div class="grid md:grid-cols-4 gap-4">
+            <div class="glass-panel rounded-xl p-6 text-center group hover:border-electric-500/30 transition-all border border-steel-800/50">
+                <div class="w-12 h-12 mx-auto mb-4 bg-steel-900 rounded-lg flex items-center justify-center text-2xl border border-steel-800 group-hover:shadow-[0_0_15px_rgba(56,189,248,0.3)] transition-all">🦀</div>
+                <h4 class="font-semibold text-steel-200 mb-2">Rust Agents</h4>
+                <p class="text-xs text-steel-500 font-mono leading-relaxed">Edge collectors with async MQTT publishing</p>
+            </div>
+            <div class="glass-panel rounded-xl p-6 text-center group hover:border-electric-500/30 transition-all border border-steel-800/50">
+                <div class="w-12 h-12 mx-auto mb-4 bg-steel-900 rounded-lg flex items-center justify-center text-2xl border border-steel-800">📡</div>
+                <h4 class="font-semibold text-steel-200 mb-2">MQTT Broker</h4>
+                <p class="text-xs text-steel-500 font-mono leading-relaxed">HiveMQ cluster with TLS encryption</p>
+            </div>
+            <div class="glass-panel rounded-xl p-6 text-center group hover:border-electric-500/30 transition-all border border-steel-800/50">
+                <div class="w-12 h-12 mx-auto mb-4 bg-steel-900 rounded-lg flex items-center justify-center text-2xl border border-steel-800">🐘</div>
+                <h4 class="font-semibold text-steel-200 mb-2">TimescaleDB</h4>
+                <p class="text-xs text-steel-500 font-mono leading-relaxed">Time-series hypertables for metrics</p>
+            </div>
+            <div class="glass-panel rounded-xl p-6 text-center group hover:border-electric-500/30 transition-all border border-steel-800/50">
+                <div class="w-12 h-12 mx-auto mb-4 bg-steel-900 rounded-lg flex items-center justify-center text-2xl border border-steel-800">⚡</div>
+                <h4 class="font-semibold text-steel-200 mb-2">FastAPI</h4>
+                <p class="text-xs text-steel-500 font-mono leading-relaxed">WebSocket streaming to React frontend</p>
+            </div>
+        </div>
+    </section>
+
+    <footer class="border-t border-steel-800/30 py-12 px-6 lg:px-8 max-w-7xl mx-auto mt-20">
+        <div class="flex flex-col md:flex-row justify-between items-center">
+            <div class="flex items-center space-x-2 mb-4 md:mb-0">
+                <div class="w-6 h-6 bg-steel-600 rounded flex items-center justify-center">
+                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                </div>
+                <span class="text-steel-300 font-semibold tracking-tight">SharqNet</span>
+            </div>
+            <div class="text-sm text-steel-600 font-mono">
+                Microgrid Telemetry Platform • Eastern Province, Saudi Arabia
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // WAIT FOR DOM TO BE READY
+        window.addEventListener('load', function() {
+            console.log('Initializing Three.js orb...');
+            
+            // Check if Three.js loaded
+            if (typeof THREE === 'undefined') {
+                console.error('Three.js not loaded!');
+                return;
+            }
+
+            // SETUP
+            const container = document.getElementById('hero-shader');
+            const width = container.clientWidth || window.innerWidth;
+            const height = container.clientHeight || window.innerHeight;
+            
+            // SCENE
+            const scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x020617);
+            
+            // CAMERA
+            const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
+            camera.position.set(0, 0, 8);
+            
+            // RENDERER
+            const renderer = new THREE.WebGLRenderer({ 
+                antialias: true, 
+                alpha: true,
+                powerPreference: "high-performance"
+            });
+            renderer.setSize(width, height);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.0;
+            
+            container.appendChild(renderer.domElement);
+            console.log('Renderer created and appended');
+            
+            // LIGHTS
+            const ambientLight = new THREE.AmbientLight(0x475569, 0.4);
+            scene.add(ambientLight);
+            
+            const keyLight = new THREE.DirectionalLight(0xffffff, 1.2);
+            keyLight.position.set(5, 5, 10);
+            keyLight.castShadow = true;
+            keyLight.shadow.mapSize.width = 2048;
+            keyLight.shadow.mapSize.height = 2048;
+            scene.add(keyLight);
+            
+            const fillLight = new THREE.DirectionalLight(0x38bdf8, 0.6);
+            fillLight.position.set(-5, 0, 5);
+            scene.add(fillLight);
+            
+            const rimLight = new THREE.DirectionalLight(0x7dd3fc, 0.8);
+            rimLight.position.set(0, 5, -5);
+            scene.add(rimLight);
+            
+            const pointLight = new THREE.PointLight(0xffffff, 0.5, 20);
+            pointLight.position.set(0, 0, 3);
+            scene.add(pointLight);
+            
+            // CREATE ORB - High detail sphere
+            const geometry = new THREE.SphereGeometry(1.8, 64, 64);
+            
+            // POLISHED METAL MATERIAL
+            const material = new THREE.MeshPhysicalMaterial({
+                color: 0x64748b,
+                metalness: 1.0,
+                roughness: 0.15,
+                clearcoat: 1.0,
+                clearcoatRoughness: 0.1,
+                reflectivity: 1.0,
+                envMapIntensity: 1.0,
+                specularIntensity: 1.0,
+                specularColor: 0xffffff,
+                side: THREE.DoubleSide
+            });
+            
+            const orb = new THREE.Mesh(geometry, material);
+            orb.castShadow = true;
+            orb.receiveShadow = true;
+            scene.add(orb);
+            
+            console.log('Orb created and added to scene');
+            
+            // ANIMATION LOOP
+            let time = 0;
+            function animate() {
+                requestAnimationFrame(animate);
+                
+                time += 0.01;
+                
+                // Rotate the orb - turning round and round
+                orb.rotation.y += 0.005;
+                orb.rotation.x = Math.sin(time * 0.5) * 0.1;
+                
+                // Gentle floating
+                orb.position.y = Math.sin(time) * 0.1;
+                
+                renderer.render(scene, camera);
+            }
+            
+            animate();
+            console.log('Animation started');
+            
+            // RESIZE HANDLER
+            window.addEventListener('resize', function() {
+                const newWidth = container.clientWidth || window.innerWidth;
+                const newHeight = container.clientHeight || window.innerHeight;
+                camera.aspect = newWidth / newHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(newWidth, newHeight);
+            });
+            
+            // ELECTRIC CANVAS SETUP
+            const electricCanvas = document.getElementById('electric-canvas');
+            const eCtx = electricCanvas.getContext('2d');
+            electricCanvas.width = window.innerWidth;
+            electricCanvas.height = window.innerHeight;
+            
+            class Lightning {
+                constructor(x, y, targetX, targetY, branches = 3) {
+                    this.x = x;
+                    this.y = y;
+                    this.targetX = targetX;
+                    this.targetY = targetY;
+                    this.branches = branches;
+                    this.segments = [];
+                    this.life = 1.0;
+                    this.decay = 0.025 + Math.random() * 0.02;
+                    this.width = 2 + Math.random() * 2;
+                    this.generate();
+                }
+
+                generate() {
+                    this.segments = this.createSegments(this.x, this.y, this.targetX, this.targetY, 5);
+                    for(let i = 0; i < this.branches; i++) {
+                        if(this.segments.length > 4) {
+                            const startIdx = Math.floor(Math.random() * (this.segments.length - 2));
+                            const start = this.segments[startIdx];
+                            const angle = Math.random() * Math.PI * 2;
+                            const length = 40 + Math.random() * 80;
+                            const endX = start.x + Math.cos(angle) * length;
+                            const endY = start.y + Math.sin(angle) * length;
+                            const branchSegments = this.createSegments(start.x, start.y, endX, endY, 3);
+                            this.segments.push(...branchSegments);
+                        }
+                    }
+                }
+
+                createSegments(x1, y1, x2, y2, iterations) {
+                    let segments = [{x: x1, y: y1}, {x: x2, y: y2}];
+                    for(let i = 0; i < iterations; i++) {
+                        let newSegments = [];
+                        for(let j = 0; j < segments.length - 1; j++) {
+                            const start = segments[j];
+                            const end = segments[j + 1];
+                            const midX = (start.x + end.x) / 2;
+                            const midY = (start.y + end.y) / 2;
+                            const dx = end.x - start.x;
+                            const dy = end.y - start.y;
+                            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+                            const maxOffset = dist * 0.3;
+                            const offset = (Math.random() - 0.5) * maxOffset;
+                            newSegments.push(start);
+                            newSegments.push({
+                                x: midX + (-dy / dist) * offset,
+                                y: midY + (dx / dist) * offset
+                            });
+                        }
+                        newSegments.push(segments[segments.length - 1]);
+                        segments = newSegments;
+                    }
+                    return segments;
+                }
+
+                update() {
+                    this.life -= this.decay;
+                    return this.life > 0;
+                }
+
+                draw(ctx) {
+                    if(this.life <= 0) return;
+                    ctx.save();
+                    ctx.globalAlpha = this.life;
+                    ctx.shadowBlur = 15;
+                    ctx.shadowColor = 'rgba(56, 189, 248, 0.9)';
+                    ctx.strokeStyle = '#7dd3fc';
+                    ctx.lineWidth = this.width;
+                    ctx.lineCap = 'round';
+                    ctx.lineJoin = 'round';
+                    ctx.beginPath();
+                    ctx.moveTo(this.segments[0].x, this.segments[0].y);
+                    for(let i = 1; i < this.segments.length; i++) {
+                        ctx.lineTo(this.segments[i].x, this.segments[i].y);
+                    }
+                    ctx.stroke();
+                    
+                    ctx.shadowBlur = 5;
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = this.width * 0.4;
+                    ctx.stroke();
+                    ctx.restore();
+                }
+            }
+
+            let lightnings = [];
+            let lastStrike = 0;
+            let strikeInterval = 800;
+
+            function triggerLightning() {
+                const now = Date.now();
+                if(now - lastStrike > strikeInterval) {
+                    const startX = Math.random() < 0.5 ? Math.random() * window.innerWidth : (Math.random() < 0.5 ? 0 : window.innerWidth);
+                    const startY = Math.random() < 0.4 ? 0 : Math.random() * window.innerHeight * 0.4;
+                    const targetX = window.innerWidth * 0.3 + Math.random() * window.innerWidth * 0.4;
+                    const targetY = window.innerHeight * 0.4 + Math.random() * window.innerHeight * 0.4;
+                    lightnings.push(new Lightning(startX, startY, targetX, targetY, 2 + Math.floor(Math.random() * 2)));
+                    
+                    if(Math.random() > 0.6) {
+                        setTimeout(() => {
+                            lightnings.push(new Lightning(
+                                Math.random() * window.innerWidth, 0,
+                                Math.random() * window.innerWidth, window.innerHeight * 0.6,
+                                2
+                            ));
+                        }, 30);
+                    }
+                    
+                    if(Math.random() > 0.5) {
+                        const flash = document.getElementById('flash');
+                        flash.style.opacity = '1';
+                        setTimeout(() => flash.style.opacity = '0', 40);
+                    }
+                    
+                    lastStrike = now;
+                    strikeInterval = 400 + Math.random() * 1500;
+                }
+            }
+
+            function animateElectric() {
+                requestAnimationFrame(animateElectric);
+                eCtx.clearRect(0, 0, electricCanvas.width, electricCanvas.height);
+                triggerLightning();
+                lightnings = lightnings.filter(l => l.update());
+                lightnings.forEach(l => l.draw(eCtx));
+            }
+            
+            animateElectric();
+            
+            // GSAP
+            gsap.registerPlugin(ScrollTrigger);
+            const counters = document.querySelectorAll('.counter');
+            counters.forEach(counter => {
+                const target = parseFloat(counter.getAttribute('data-target'));
+                gsap.to(counter, {
+                    innerHTML: target,
+                    duration: 2,
+                    ease: "power2.out",
+                    snap: { innerHTML: target % 1 === 0 ? 1 : 0.1 },
+                    scrollTrigger: {
+                        trigger: counter,
+                        start: "top 85%",
+                    }
+                });
+            });
+
+            const nodeData = [
+                { id: 'SA-EP-001', loc: 'Dammam Central', status: 'active', load: '84%' },
+                { id: 'SA-EP-002', loc: 'Khobar Corniche', status: 'active', load: '92%' },
+                { id: 'SA-EP-003', loc: 'Jubail Industrial', status: 'warning', load: '96%' },
+                { id: 'SA-EP-004', loc: 'Qatif Grid', status: 'active', load: '67%' },
+                { id: 'SA-EP-005', loc: 'Ras Tanura', status: 'active', load: '45%' },
+                { id: 'SA-EP-006', loc: 'Safwa Substation', status: 'active', load: '78%' },
+            ];
+
+            const nodeList = document.getElementById('nodeList');
+            nodeData.forEach(node => {
+                const div = document.createElement('div');
+                div.className = 'flex items-center justify-between p-3 rounded-lg bg-steel-900/30 border border-steel-800/50 hover:border-steel-600/50 transition-all cursor-pointer group';
+                div.innerHTML = `
+                    <div class="flex items-center space-x-3">
+                        <div class="w-2 h-2 rounded-full ${node.status === 'active' ? 'bg-electric-400' : 'bg-yellow-500'} ${node.status === 'active' ? 'animate-pulse' : ''}"></div>
+                        <div>
+                            <div class="text-sm font-medium text-steel-200 group-hover:text-white transition-colors">${node.id}</div>
+                            <div class="text-xs text-steel-500 font-mono">${node.loc}</div>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-sm font-mono text-steel-300">${node.load}</div>
+                    </div>
+                `;
+                nodeList.appendChild(div);
+            });
+
+            const chartCanvas = document.getElementById('energyChart');
+            const ctx = chartCanvas.getContext('2d');
+            
+            function resizeChart() {
+                chartCanvas.width = chartCanvas.offsetWidth;
+                chartCanvas.height = chartCanvas.offsetHeight;
+            }
+            resizeChart();
+
+            let dataPoints = Array(60).fill(0).map(() => 30 + Math.random() * 40);
+
+            function drawChart() {
+                ctx.fillStyle = '#0f172a';
+                ctx.fillRect(0, 0, chartCanvas.width, chartCanvas.height);
+                ctx.strokeStyle = 'rgba(148, 163, 184, 0.1)';
+                ctx.lineWidth = 1;
+                for(let i = 0; i < 5; i++) {
+                    const y = (chartCanvas.height / 4) * i;
+                    ctx.beginPath();
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(chartCanvas.width, y);
+                    ctx.stroke();
+                }
+
+                const gradient = ctx.createLinearGradient(0, 0, 0, chartCanvas.height);
+                gradient.addColorStop(0, 'rgba(56, 189, 248, 0.2)');
+                gradient.addColorStop(1, 'rgba(56, 189, 248, 0)');
+
+                ctx.beginPath();
+                ctx.moveTo(0, chartCanvas.height);
+                dataPoints.forEach((point, i) => {
+                    const x = (i / (dataPoints.length - 1)) * chartCanvas.width;
+                    const y = chartCanvas.height - (point / 100) * chartCanvas.height;
+                    ctx.lineTo(x, y);
+                });
+                ctx.lineTo(chartCanvas.width, chartCanvas.height);
+                ctx.closePath();
+                ctx.fillStyle = gradient;
+                ctx.fill();
+
+                ctx.beginPath();
+                dataPoints.forEach((point, i) => {
+                    const x = (i / (dataPoints.length - 1)) * chartCanvas.width;
+                    const y = chartCanvas.height - (point / 100) * chartCanvas.height;
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                });
+                ctx.strokeStyle = '#38bdf8';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                dataPoints.shift();
+                dataPoints.push(30 + Math.random() * 40);
+            }
+
+            setInterval(drawChart, 150);
+
+            gsap.from('.metric-card', {
+                y: 30,
+                opacity: 0,
+                duration: 0.8,
+                stagger: 0.15,
+                ease: "power2.out",
+                scrollTrigger: {
+                    trigger: '#dashboard',
+                    start: 'top 75%'
+                }
+            });
+            
+            console.log('All systems initialized successfully!');
+        });
+    </script>
+</body>
+</html>
