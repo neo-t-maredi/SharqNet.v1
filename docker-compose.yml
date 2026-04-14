@@ -94,6 +94,19 @@ services:
       mosquitto:
         condition: service_healthy
 
+  meter-agent:
+    build:
+      context: ./services/meter-agent
+      dockerfile: Dockerfile
+    container_name: sharqnet_meter_agent
+    restart: always
+    environment:
+      MQTT_HOST: sharqnet_mqtt
+      MQTT_PORT: 1883
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+
 volumes:
   timescale_data:
   redis_data:
